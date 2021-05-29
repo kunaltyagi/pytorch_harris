@@ -10,19 +10,19 @@ OPENVINO_DIR=${HOME}/.local/opt/intel/openvino
 TOOLS_DIR=${OPENVINO_DIR}/deployment_tools
 
 out/model.onnx: model.py
-	source ~/virtualenv/ml/bin/activate && \
+	source ${HOME}/virtualenv/ml/bin/activate && \
 	python model.py
 
 no_abs:
-	source ~/virtualenv/ml/bin/activate && \
+	source ${HOME}/virtualenv/ml/bin/activate && \
 	python model.py
 
 abs:
-	source ~/virtualenv/ml/bin/activate && \
+	source ${HOME}/virtualenv/ml/bin/activate && \
 	python model.py --abs
 
 out/model.xml: out/model.onnx
-	source ~/virtualenv/ml/bin/activate && \
+	source ${HOME}/virtualenv/ml/bin/activate && \
 	python3 ${TOOLS_DIR}/model_optimizer/mo_onnx.py --input_model "out/model.onnx" --data_type half -o out --input_shape "[1, 3, 300, 300]"
 
 out/model.blob: out/model.xml
