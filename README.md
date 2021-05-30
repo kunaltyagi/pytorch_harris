@@ -13,4 +13,10 @@ else use
 model.py
 ```
 
-Current makefile is not generic and assume the location of virtualenv and OpenVINO installations
+## Using the makefile
+
+`make build` runs `make docker` + compiles the network in the docker.
+
+In order to change to `model.py --abs`, you need to manually modify the makefile (I couldn't make it via cli arg). The target `out/model.onnx` needs to require `abs` instead of `no_abs`.
+
+Sometimes, `make build` needs to be run twice in order to compile the model.
