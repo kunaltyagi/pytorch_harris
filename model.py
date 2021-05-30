@@ -41,7 +41,7 @@ class Harris(nn.Module):
         edge = abs_edges.sum(dim=1)/2
         return edge
 
-        thresh = torch.where(edge > 240, 255, 0)
+        thresh = torch.where(edge > 140, 255, 0)
 
         return thresh
 
