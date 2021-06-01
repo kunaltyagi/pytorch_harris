@@ -45,4 +45,7 @@ RUN git clone https://github.com/openvinotoolkit/openvino/ --depth=1 --recursive
     cd ../.. && \
     rm -fr openvino
 
-RUN pip install -U pip setuptools wheel defusedxml requests networkx torch torchvision onnx
+RUN pip install -U pip setuptools wheel \
+    defusedxml requests networkx \
+    torch torchvision onnx \
+    openvino

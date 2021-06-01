@@ -31,18 +31,22 @@ out/model.blob: out/model.xml
 	. ${OPENVINO_DIR}/bin/setupvars.sh && \
 	${TOOLS_DIR}/tools/compile_tool/compile_tool -m out/model.xml -o out/model.blob -ip U8 -d MYRIAD -VPU_NUMBER_OF_SHAVES 4 -VPU_NUMBER_OF_CMX_SLICES 4
 
+define DOCKER_CMD_BODY
+#! /usr/bin/env sh
+
+docker run --rm -it -v $(shell pwd):/model -u $(shell id -u) \
+	pytorch_harris/openvino:latest "$$@"
+endef
+export DOCKER_CMD_BODY
 out/docker: Dockerfile
 	docker build -t pytorch_harris/openvino:latest ${PUSH_ARG} -f Dockerfile .
-	touch out/docker
+	echo "$$DOCKER_CMD_BODY" > out/docker
+	chmod +x out/docker
 
 docker: out/docker
 
 build: out/docker model.py
-	docker run --rm -it \
-		-v $(shell pwd):/model -u $(shell id -u) \
-		pytorch_harris/openvino:latest bash -c 'cd /model; make out/model.blob'
+	out/docker bash -c 'cd /model; make out/model.blob'
 
 inspect: out/docker model.py
-	docker run --rm -it \
-		-v $(shell pwd):/model -u $(shell id -u) \
-		pytorch_harris/openvino:latest bash
+	out/docker bash
