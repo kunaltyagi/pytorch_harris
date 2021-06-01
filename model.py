@@ -36,7 +36,7 @@ class Harris(nn.Module):
         if self.use_abs:
             abs_edges = edges.abs()
         else:
-            abs_edges = edges.pow(2).pow(0.5)
+            abs_edges = edges.multiply(edges).sqrt_()
 
         edge = abs_edges.sum(dim=1)/2
         return edge
