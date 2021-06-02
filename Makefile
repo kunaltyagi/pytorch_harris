@@ -11,9 +11,9 @@ TOOLS_DIR=${OPENVINO_DIR}/deployment_tools
 
 BUILDX:=$(shell docker build --help 2>/dev/null | grep -q -- '--push'; echo $$?)
 ifeq (${BUILDX},0)
-	PUSH_ARG='--load'
+	PUSH_ARG=--load
 else
-	PUSH_ARG=''
+	PUSH_ARG=
 endif
 
 no_abs: model.py
