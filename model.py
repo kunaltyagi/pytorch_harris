@@ -9,6 +9,14 @@ import torchvision as tv
 from torch.nn import functional as F
 from typing import Optional, Tuple
 
+def get_gaussian_2d(size, mean, stddev):
+    grid1d = np.linspace(-1, 1, size)
+    x, y = np.meshgrid(grid1d, grid1d)
+    grid2d = np.sqrt(x*x + y*y)
+
+    gauss = np.exp(-(grid2d - mean)**2 / (2 * stddev**2))
+    return gauss
+
 
 class CornerDetection(nn.Module):
     """
