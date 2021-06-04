@@ -17,10 +17,10 @@ def find_edges(gray):
     return edged
 
 def find_features(img, gray):
-    corners = cv.goodFeaturesToTrack(gray,25,0.01,5)
-    for i in corners[0]:
-        x,y = i.ravel()
-        cv.circle(img,(x,y),3,255,-1)
+    dst = cv.cornerHarris(gray,2,3,0.04)
+    dst = cv.dilate(dst,None)
+    img[dst>0.01*dst.max()]=[0,0,255]
+
     return img
 
 if __name__ == "__main__":
@@ -70,9 +70,9 @@ if __name__ == "__main__":
             cv.imshow("Device Edges", frame_data)
             # cv.imshow("Host Edges", edged)
         else:
-            gftt = find_features(img, gray)
-            cv.imshow("GFTT", gftt)
-            cv.imshow("Host-side", frame_data)
+            corner = find_features(img, gray)
+            cv.imshow("Corner", corner)
+            cv.imshow("Device-side", frame_data)
 
         if cv.waitKey(1) == ord("q"):
             break
