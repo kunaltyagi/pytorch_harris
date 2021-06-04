@@ -16,13 +16,13 @@ else
 	PUSH_ARG=
 endif
 
-no_abs: model.py
+farid: model.py
+	python3 model.py --gradient 5
+
+scharr: model.py
 	python3 model.py
 
-abs: model.py
-	python3 model.py --abs
-
-out/model.onnx: no_abs
+out/model.onnx: farid
 
 out/model.xml: out/model.onnx
 	python3 ${TOOLS_DIR}/model_optimizer/mo_onnx.py --input_model "out/model.onnx" --data_type half -o out --input_shape "[1, 3, 300, 300]"

@@ -9,13 +9,54 @@ import torchvision as tv
 from torch.nn import functional as F
 from typing import Optional, Tuple
 
+
 def get_gaussian_2d(size, mean, stddev):
     grid1d = np.linspace(-1, 1, size)
     x, y = np.meshgrid(grid1d, grid1d)
-    grid2d = np.sqrt(x*x + y*y)
+    grid2d = np.sqrt(x * x + y * y)
 
-    gauss = np.exp(-(grid2d - mean)**2 / (2 * stddev**2))
+    gauss = np.exp(-((grid2d - mean) ** 2) / (2 * stddev ** 2))
     return gauss
+
+
+def get_edge_weights(size, dtype=np.float64):
+    # For more info about the weights, please see:
+    # skimage/filters/edges.py
+    interp = None
+    smooth = None
+
+    if size == 3:  # use scharr
+        interp = np.matrix([1, 0, -1], dtype=dtype)
+        smooth = np.matrix([3, 10, 3], dtype=dtype) / 16
+    elif size == 5:  # use farid
+        interp = np.matrix(
+            [
+                0.109603762960254,
+                0.276690988455557,
+                0.0,
+                -0.276690988455557,
+                -0.109603762960254,
+            ],
+            dtype=dtype,
+        )
+        smooth = np.matrix(
+            [
+                0.0376593171958126,
+                0.249153396177344,
+                0.426374573253687,
+                0.249153396177344,
+                0.0376593171958126,
+            ],
+            dtype=dtype,
+        )
+    return interp, smooth
+
+
+def make_edge_filter(interp, smooth, dtype=torch.float32):
+    x = torch.tensor(smooth.T * interp, dtype=dtype)
+    y = torch.tensor(interp.T * smooth, dtype=dtype)
+    # unsqueeze to make this into a filter with shape: [out, in, w, h]
+    return torch.stack([x, y]).unsqueeze(1)
 
 
 class CornerDetection(nn.Module):
@@ -30,6 +71,7 @@ class CornerDetection(nn.Module):
         corner_window: int = 3,
         nms_window: int = 3,
         blur_window: Optional[int] = None,
+        gradient_window: Optional[int] = None,
         gradient_tensor: Optional[torch.Tensor] = None,
     ):
         """
@@ -52,8 +94,12 @@ class CornerDetection(nn.Module):
         self.corner_window_size = corner_window
         self.nms_window_size = nms_window
         self.blur_window_size = blur_window
+        self.edge_filter = None
 
         if gradient_tensor is not None:
+            assert (
+                gradient_window is None
+            ), "Window size not needed when the tensor is provided"
             assert gradient_tensor.shape[0] == 2, "Only 2-axis gradients are supported"
             assert (
                 gradient_tensor.shape[1] == 1
@@ -66,21 +112,22 @@ class CornerDetection(nn.Module):
                 gradient_tensor.dtype == dtype
             ), "Everything needs to be of the same dtype"
 
-            self.scharr = gradient_tensor
+            self.edge_filter = gradient_tensor
         else:
-            scharr_x = torch.tensor(
-                [[-3, 0, 3], [-10, 0, 10], [-3, 0, 3]], dtype=self.dtype
+            if gradient_window is None:
+                gradient_window = 3
+            assert gradient_window % 2, "Filter size needs to be odd"
+            self.edge_filter = make_edge_filter(
+                *get_edge_weights(gradient_window), dtype=self.dtype
             )
-            scharr_y = scharr_x.transpose(0, 1)
-
-            # tensor.shape = out_channels, in_channel, k, k
-            self.scharr = torch.stack([scharr_x, scharr_y]).unsqueeze(1)
 
     def forward(self, x):
         gray = tv.transforms.Grayscale()
         image = gray(x)
 
-        edges = F.conv2d(image, self.scharr, padding=int(self.scharr.shape[-1] // 2))
+        edges = F.conv2d(
+            image, self.edge_filter, padding=int(self.edge_filter.shape[-1] // 2)
+        )
 
         # Shi-Tomasi
         # Ix*Ix and Iy*Iy
@@ -119,7 +166,7 @@ class CornerDetection(nn.Module):
         eig_val = (
             trace - (IxIx_IyIy.multiply_(IxIx_IyIy) + 4 * IxIy.multiply_(IxIy)).sqrt()
         )
-        # apply non-max suppression
+        # apply non-max suppression, doesn't work on OpenVINO
         local_maxima = (
             F.max_pool2d(eig_val, self.nms_window_size, stride=1, padding=1) == eig_val
         )
@@ -130,6 +177,7 @@ class CornerDetection(nn.Module):
 
         # used as a short-cut for abs_edges.sum(dim=1).sqrt()
         edge = abs_edges.sum(dim=1) / 2
+        # edge = abs_edges.sum(dim=1).sqrt()
         return edge, eig_val
 
 
@@ -141,7 +189,7 @@ def export_onnx(args):
     shape = (1, 3, 300, 300)
     # Create the Model
     dtype = torch.float32
-    model = CornerDetection(dtype=dtype)
+    model = CornerDetection(gradient_window=args.gradient_window, dtype=dtype)
     X = torch.ones(shape, dtype=dtype)
     output_file = args.output
     print(f"Writing to {output_file}")
@@ -166,6 +214,12 @@ def parse_args():
 
     parser.add_argument(
         "-o", "--output", default="out/model.onnx", help="output filename"
+    )
+    parser.add_argument(
+        "--gradient-window",
+        type=int,
+        default=None,
+        help="Size of window (odd) used for extracting edges",
     )
 
     args, _ = parser.parse_known_args()
