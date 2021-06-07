@@ -178,7 +178,7 @@ class CornerDetection(nn.Module):
         # used as a short-cut for abs_edges.sum(dim=1).sqrt()
         edge = abs_edges.sum(dim=1) / 2
         # edge = abs_edges.sum(dim=1).sqrt()
-        return edge, eig_val
+        return torch.stack([edge, eig_val])
 
 
 def export_onnx(args):

@@ -55,24 +55,23 @@ if __name__ == "__main__":
         gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         # Model output
         layer = np.array(frame.getFirstLayerFp16())
-        # layer = np.array(frame.getLayerFp16(frame.getAllLayers()[0]))
         # deal with inf
         layer[layer == np.Inf] = 255
         # Reshape
         layer = np.array(layer, dtype=np.uint8)
-        shape = (300, 300, 1)
+        shape = (2, 300, 300)
         frame_data = layer.reshape(shape)
+        edges = frame_data[0, :,:] * 5  # for visual appeal
+        corners = frame_data[1, :,:]
 
         cv.imshow("Image", img)
-        edge = False
-        if edge:
-            # edged = find_edges(gray)
-            cv.imshow("Device Edges", frame_data)
-            # cv.imshow("Host Edges", edged)
-        else:
-            corner = find_features(img, gray)
-            cv.imshow("Corner", corner)
-            cv.imshow("Device-side", frame_data)
+        cv.imshow("Device Corners", corners)
+        cv.imshow("Device Edges", edges)
+
+        # edged = find_edges(gray)
+        # cv.imshow("Host Edges", edged)
+        corner = find_features(img, gray)
+        cv.imshow("Corner", corner)
 
         if cv.waitKey(1) == ord("q"):
             break
